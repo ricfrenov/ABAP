@@ -54,7 +54,7 @@ FORM mostrar USING op.
   '|', 3 'CÓDIGO ' CENTERED, 16 '|', "column 'cod' init at '3' space of right and limited the '16ª' position of display 
   17 ' NOME' CENTERED, 34 '|',  "column 'name' initializing after of column 'cod' and finishing at line 34ª
   35 ' EMAIL ' CENTERED, 62 '|', "init in 35ª position and finishing at 62ª position
-  63 ' CIDADE' CENTERED, 80  '|',
+  63 ' CIDADE' CENTERED, 80  '|', "column 'CIDADE' init at line 63 and finishing at 80
   81 ' ESTADO ' CENTERED, 103  '|' .
   ULINE AT /2(102).
 *structure conditional for can loop up until the last register
