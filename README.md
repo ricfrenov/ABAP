@@ -1,2 +1,0 @@
-# ABAP
-CÓDIGOS ABAP
