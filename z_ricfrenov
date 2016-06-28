@@ -1,0 +1,76 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_RICFRENOV
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_ricfrenov NO STANDARD PAGE HEADING.
+*declaration of the datas
+DATA:  codigo TYPE c LENGTH 15,
+       nome   TYPE c LENGTH 15,
+       email  TYPE c LENGTH 25,
+       end    TYPE c LENGTH 15,
+       cidade TYPE c LENGTH 15,
+       estado TYPE c LENGTH 20,
+       tel    TYPE c LENGTH 15,
+       cont   TYPE i VALUE 1.
+*declaration of the parameter for receiver values of user
+PARAMETERS: opcao TYPE c,
+            cod   TYPE i.
+*declaration of structure of table transparent
+TYPES: BEGIN OF wa_z_ricfrenov,
+         codigo   TYPE z_ricfrenov-codigo,
+         nome     TYPE z_ricfrenov-nome,
+         email    TYPE z_ricfrenov-email,
+         endereco TYPE z_ricfrenov-endereco,
+         cidade   TYPE z_ricfrenov-cidade,
+         estado   TYPE z_ricfrenov-estado,
+         telefone TYPE z_ricfrenov-telefone,
+       END OF wa_z_ricfrenov.
+*creation of internal table
+DATA: it_z_ricfrenov TYPE TABLE OF z_ricfrenov,
+      wa_z_ricfrenov LIKE LINE OF it_z_ricfrenov.
+*call the form for select in transparent table
+PERFORM consultar.
+*declaration of the form 'consultar'
+FORM consultar.
+*Query of selection
+  SELECT * FROM z_ricfrenov INTO TABLE it_z_ricfrenov UP TO 50 ROWS.
+*call form of exhibition
+  PERFORM mostrar USING opcao.
+*end of form
+ENDFORM.
+*declaration of form for exhibition information at display
+FORM mostrar USING op.
+*name for header of display
+  WRITE: '  MANIPULAÇÕES'.
+  ULINE.
+  SKIP.
+
+  ULINE AT 2(102).
+  WRITE: /2 '|', 40 'INFORMAÇÕES DO USUÁRIO ' CENTERED, 103 '|'.
+  ULINE AT /2(102).
+* writing the columns of structure of the table at display each one with your positions init and ended respectively
+  WRITE:/2
+  '|', 3 'CÓDIGO ' CENTERED, 16 '|', "column 'cod' init at '3' space of right and limited the '16ª' position of display 
+  17 ' NOME' CENTERED, 34 '|',  "column 'name' initializing after of column 'cod' and finishing at line 34ª
+  35 ' EMAIL ' CENTERED, 62 '|', "init in 35ª position and finishing at 62ª position
+  63 ' CIDADE' CENTERED, 80  '|',
+  81 ' ESTADO ' CENTERED, 103  '|' .
+  ULINE AT /2(102).
+*structure conditional for can loop up until the last register
+  IF op EQ '1'.
+    LOOP AT it_z_ricfrenov INTO wa_z_ricfrenov.
+*atribued the values for variables local
+      codigo   = wa_z_ricfrenov-codigo.
+      nome     = wa_z_ricfrenov-nome.
+      email    = wa_z_ricfrenov-email.
+      end      = wa_z_ricfrenov-endereco.
+      cidade   = wa_z_ricfrenov-cidade.
+      estado   = wa_z_ricfrenov-estado.
+*write the name of columns
+      WRITE:/' |',cont,'|',nome ,'|', email ,'|', cidade ,'|',estado,'|'.
+      ADD 1 TO cont. "add 1 in cont for control yhe exhibition of column name  
+      ULINE AT /2(102). "skip one line and write the line of length '102' for close the structure of table
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
