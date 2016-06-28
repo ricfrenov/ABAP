@@ -1,0 +1,258 @@
+**&---------------------------------------------------------------------*
+**& Report  ZTREINA_OO_RNOVAIS
+**&---------------------------------------------------------------------*
+**&
+**&---------------------------------------------------------------------*
+REPORT ztreina_oo_rnovais.
+
+TABLES z_rnovais.
+
+CONSTANTS:
+        c_x      TYPE char1 VALUE 'X'.
+
+"Declaramos a estrutura de dados
+TYPES: BEGIN OF ty_z_rnovais,
+         cb         TYPE checkbox,
+         codigo     TYPE z_rnovais-codigo,
+         nome       TYPE z_rnovais-nome,
+         email      TYPE z_rnovais-email,
+         estado     TYPE z_rnovais-estado,
+         cidade     TYPE z_rnovais-cidade,
+         endereco   TYPE z_rnovais-endereco,
+         telefone   TYPE z_rnovais-telefone,
+         icon       TYPE icon_d,
+         icone_taxa TYPE icon-id,
+       END OF ty_z_rnovais.
+
+"Declaração de tabelas internas, work areas e variaveis da ALV.
+DATA o_alv        TYPE REF TO cl_salv_table.          "Objeto tipo cl_salv_table.
+DATA tg_dados_2   TYPE STANDARD TABLE OF ty_z_rnovais.
+DATA tg_dados     TYPE TABLE OF z_rnovais.
+DATA: gr_columns  TYPE REF TO cl_salv_columns_table, 
+      r_botoes    TYPE REF TO cl_salv_functions_list,
+      ls_color    TYPE lvc_s_colo,
+      r_grid      TYPE REF TO cl_salv_table,
+      vg_linha    TYPE i,         "Variavel contadora de linhas.
+      vg_resposta TYPE char1.
+      "referencias as colunas do ALV.
+DATA gr_column    TYPE REF TO cl_salv_column_table.  "Variavel para referencias as colunas do ALV.
+DATA wa_dados     LIKE LINE OF tg_dados.
+DATA wa_dados_2   LIKE LINE OF tg_dados_2.
+
+"Select da tabela do banco com into na tabela interna.
+SELECT * FROM z_rnovais INTO TABLE tg_dados.
+
+"Loop na tabela do banco com into na work area movendo os dados,
+"correspondentes da primeira wa pra segunda
+LOOP AT tg_dados INTO wa_dados.
+  MOVE-CORRESPONDING wa_dados TO wa_dados_2.
+  wa_dados_2-cb = abap_false.
+  IF wa_dados_2-estado EQ 'BA'.
+    wa_dados_2-icon = icon_locked.
+  ELSE.
+    wa_dados_2-icon = icon_unlocked.
+  ENDIF.
+  " Granvando os dados da wa2 pra tg2
+  "('imagem' estrutura da tabela interna)
+  APPEND wa_dados_2 TO tg_dados_2.
+ENDLOOP.
+
+PERFORM mostrar_icones CHANGING wa_dados_2.
+
+TRY.
+    " Cria a referencia passando a tabela interna
+    CALL METHOD cl_salv_table=>factory "get SALV factory instance
+      IMPORTING
+        r_salv_table = o_alv
+      CHANGING
+        t_table      = tg_dados_2.
+    CALL METHOD o_alv->set_screen_status
+      EXPORTING
+        report        = 'ZTREINA_ALV'
+        pfstatus      = 'ZSTATUS'
+        set_functions = o_alv->c_functions_all.
+
+    "variável recebe o retorno da chamada do método get_columns chamado.
+    "através do o_alv.
+    gr_columns = o_alv->get_columns( ).
+    
+    "variável gr_column chama o metodo set_optimize passando por parametro.
+    " o valor 'X'.
+    gr_columns->set_optimize( 'X' ).
+ENDTRY.
+
+" Definição do evento de seleção de checkbox.
+CLASS lcl_event_handler DEFINITION.
+  PUBLIC SECTION.
+    "Declaração do metodo m_link_click para o evento link_click.
+    "que está na classe CL_SALV_EVENTS_TABLE->IF_SALV_EVENTS_ACTIONS_TABLE.
+    "Passando a posição de cada checkbox linha/coluna.
+    METHODS:
+      on_click     FOR EVENT added_function OF cl_salv_events,
+      m_link_click FOR EVENT link_click OF cl_salv_events_table
+        IMPORTING row column.
+ENDCLASS.                    "lcl_event_handler DEFINITION FINAL.
+
+"Implementação do evento de seleção do checkbox.
+CLASS lcl_event_handler IMPLEMENTATION.
+  METHOD on_click.
+    DATA: vl_tabix         TYPE sy-tabix.  " Variavel para pegar o Indice do produto.
+    READ TABLE tg_dados_2 INTO wa_dados_2 WITH KEY cb = c_x.
+    vl_tabix = sy-tabix.
+    IF sy-subrc <> 0.
+      MESSAGE e083(zml_001).      "Selecione pelo menos um produto.
+    ENDIF.
+
+    LOOP AT tg_dados_2 INTO wa_dados_2 WHERE cb = c_x.
+      vg_linha = vg_linha + 1.
+      IF vg_linha > 1.
+        CLEAR vg_linha.
+        MESSAGE e086(zml_001).   " Selecione apenas um produto.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+    CLEAR vg_linha.
+
+*       LEITURA NA GRID P/ PEGAR A LINHA SELECIONADA
+    READ TABLE tg_dados_2 INTO  wa_dados_2 WITH KEY cb = c_x.
+    CALL SCREEN 3000.
+    IF vg_resposta = 1.
+
+      LOOP AT tg_dados INTO wa_dados WHERE codigo = wa_dados_2-codigo.
+        wa_dados-codigo   =    wa_dados_2-codigo.
+        wa_dados-nome     =    wa_dados_2-nome.
+        wa_dados-email    =    wa_dados_2-email.
+        wa_dados-estado   =    wa_dados_2-estado.
+        wa_dados-cidade   =    wa_dados_2-cidade.
+        wa_dados-endereco =    wa_dados_2-endereco.
+        wa_dados-telefone =    wa_dados_2-telefone.
+
+        MODIFY tg_dados FROM wa_dados INDEX sy-tabix.
+
+      ENDLOOP.
+
+      MODIFY z_rnovais FROM wa_dados.
+
+      IF sy-subrc = 0.
+        MODIFY tg_dados_2 FROM wa_dados_2 INDEX vl_tabix.
+      ELSE.
+        MESSAGE e082(zml_001).    "Selecione apenas produto desbloqueado 
+
+para o bloqueio.
+      ENDIF.
+    ELSE.
+      LEAVE SCREEN.
+    ENDIF.
+  ENDMETHOD.
+  
+  "inicialização do metodo m_link_click
+  METHOD m_link_click.
+
+    "Declaração do simbolo checkbox com o nome: lfs_ztreina
+    "do tipo da nossa estrutura de dados TY_z_rnovais
+    FIELD-SYMBOLS : <lfs_ztreina> TYPE ty_z_rnovais.
+
+    "Leitura da tabela interna 2 associando o checkbox linha a linha
+    READ TABLE tg_dados_2 ASSIGNING <lfs_ztreina> INDEX row.
+
+    "condição de retorno de execução da leitura da tabela
+    IF sy-subrc IS INITIAL.
+
+      "condição para o checkbox se inicial ou seja desmarcado
+      "lhe é atribuido o valor 'X'.
+      IF <lfs_ztreina>-cb IS INITIAL.
+        <lfs_ztreina>-cb = 'X'.
+      ELSE.
+
+        "se a condição do if for falsa limpamos o checkbox.
+        CLEAR <lfs_ztreina>-cb.
+      ENDIF.
+    ENDIF.
+    "Limpando a variável do typo cl_salv_tab
+    o_alv->refresh( ).
+  ENDMETHOD.
+  "m_link_click
+ENDCLASS.                    "lcl_event_handler IMPLEMENTATION FINAL.
+
+START-OF-SELECTION.
+
+  "Tratas as colunas
+  TRY.
+      gr_column ?= gr_columns->get_column( 'ICON' ).
+    CATCH cx_salv_not_found.
+      MESSAGE e060(zml_001).
+  ENDTRY.
+
+  gr_column->set_short_text( 'STATUS' ).
+  gr_column->set_medium_text( 'STATUS' ).
+  gr_column->set_long_text( 'STATUS' ).
+  ls_color-col = 4.
+  ls_color-int = 1.
+  gr_column->set_color( ls_color ).
+
+  "Tratamento de erro TRY CATCH
+  TRY.
+
+      "A variável gr_columns recebe o retorno do get_column e,
+      "é atribuida a gr_column.
+      gr_column ?= gr_columns->get_column( 'CB' ).
+
+      "Catch cx_sdalv for vazio não tiver nenhum retorno Exibe,
+      "a mensagem de erro.
+    CATCH cx_salv_not_found.
+
+      "Mensagem de erro passando o codigo do erro
+      MESSAGE e061(zml_001).
+
+  ENDTRY.
+
+  "Declaração da variável gr_events referenciando a classe,
+  "cl_salv_events_tab do ABAP.
+  DATA: gr_events TYPE REF TO cl_salv_events_table.
+
+  "Definições da nova Coluna com os checkbox.
+  gr_events = o_alv->get_event( ).
+  gr_column->set_short_text( 'SELEÇÃO' ).
+  gr_column->set_medium_text( 'SELEÇÃO' ).
+  gr_column->set_long_text( 'SELEÇÃO' ).
+  gr_column->set_cell_type( if_salv_c_cell_type=>checkbox_hotspot ).
+
+  gr_column ?= gr_columns->get_column( 'ICONE_TAXA' ).
+  gr_column->set_long_text( 'Icone Taxa Ocupação' ).
+  gr_column->set_medium_text( 'Icone Taxa Occ' ).
+  gr_column->set_alignment( 3 ).
+
+  gr_columns->set_optimize( abap_true ).
+
+  "Declaraão de Variável referenciando a classe lcl_event_handler,
+  "para ser utilizada pelo objeto.
+  DATA: gr_event_handler TYPE REF TO lcl_event_handler.
+
+  "Instanciação do Objeto da Classe lcl_event_handler com o
+  " mesmo nome da variável acima.
+  CREATE OBJECT gr_event_handler.
+
+  "Chamada do metodo m_link_click para a variável referente,
+  "a cl_salv_events_table através do objeto 'gr_evento_handler',
+  "da classe lcl_event_handler.
+  SET HANDLER gr_event_handler->m_link_click FOR gr_events.
+
+  o_alv->display( ). "display grid
+
+FORM mostrar_icones  CHANGING wa_dados_2 TYPE ty_z_rnovais .
+  "Declaração do simbolo de cores da coluna de status.
+  FIELD-SYMBOLS <fs_wal_dados> TYPE ty_z_rnovais.
+  
+  LOOP AT tg_dados_2 ASSIGNING <fs_wal_dados>.
+  
+    IF <fs_wal_dados>-cidade EQ 'SALVADOR'.
+      <fs_wal_dados>-icone_taxa = icon_led_green.
+    ELSEIF <fs_wal_dados>-cidade EQ 'SAO PAULO'.
+      <fs_wal_dados>-icone_taxa = icon_led_yellow.
+    ELSE.
+      <fs_wal_dados>-icone_taxa = icon_led_red.
+    ENDIF.
+    
+  ENDLOOP.
+
+ENDFORM.                    
